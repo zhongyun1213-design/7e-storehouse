@@ -321,7 +321,7 @@ const sw = await evalJS(`navigator.serviceWorker.ready.then(r => !!r.active)`);
 assert(sw, 'Service Worker 已激活');
 const cacheInfo = await evalJS(`(async () => {
   const keys = await caches.keys();
-  const cache = await caches.open('polyu-memo-v1');
+  const cache = await caches.open('polyu-memo-v2');
   const reqs = await cache.keys();
   return { keys, count: reqs.length, hasApp: reqs.some(r => r.url.endsWith('app.js')) };
 })()`);

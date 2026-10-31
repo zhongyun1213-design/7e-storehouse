@@ -95,6 +95,7 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 ```powershell
 node --test tools/sync.test.mjs   # 同步合并逻辑单测（10 条）
 node tools/e2e.mjs                # 真实 Chrome 端到端：增删改、备忘、邮件、主题、同步报错、离线缓存、移动/桌面布局
+node tools/offline.mjs            # 切断网络后刷新，验证 Service Worker 离线可用
 ```
 
 端到端测试需要先启动本地服务和带调试端口的 Chrome：
