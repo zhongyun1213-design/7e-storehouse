@@ -1,0 +1,20 @@
+{
+  "name": "PolyU 备忘录",
+  "short_name": "PolyU 备忘",
+  "description": "PolyU 学生的截止日倒计时、随手记和学校邮件摘要，本地优先、多设备同步。",
+  "lang": "zh-Hans",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f2ef",
+  "theme_color": "#9d2235",
+  "categories": ["productivity", "education"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

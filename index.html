@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f2ef">
+<meta name="description" content="PolyU 备忘录：截止日倒计时、随手记、学校邮件摘要，本地优先、多设备同步。">
+<title>PolyU 备忘录 · 截止日与备忘</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="icons/icon.svg" alt="" width="42" height="42">
+      <div class="brand-text">
+        <h1>PolyU 备忘录</h1>
+        <p id="todayLabel">—</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="sync-dot" id="syncDot" type="button" aria-label="同步状态" title="同步状态">
+        <i></i><span id="syncText">未同步</span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="打开设置" title="设置">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3.2"></circle>
+          <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="主要页面">
+    <button type="button" role="tab" id="tab-countdown" aria-selected="true" aria-controls="view-countdown" data-tab="countdown">倒计时</button>
+    <button type="button" role="tab" id="tab-memos" aria-selected="false" aria-controls="view-memos" data-tab="memos">备忘<span class="tab-badge" id="memoBadge" hidden></span></button>
+    <button type="button" role="tab" id="tab-mail" aria-selected="false" aria-controls="view-mail" data-tab="mail">邮件<span class="tab-dot" id="mailDot" hidden></span></button>
+  </nav>
+
+  <section class="view" id="view-countdown" role="tabpanel" aria-labelledby="tab-countdown">
+    <section class="hero" id="hero" aria-label="下一件要做的事">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-head">
+        <span class="eyebrow">下一件事</span>
+        <span class="pill" id="heroPill" hidden></span>
+      </div>
+      <div class="hero-count">
+        <span class="hero-num" id="heroNum">—</span>
+        <span class="hero-unit" id="heroUnit"></span>
+      </div>
+      <h2 class="hero-title" id="heroTitle">正在读取清单…</h2>
+      <p class="hero-meta" id="heroMeta"></p>
+      <div class="hero-bar" aria-hidden="true"><i id="heroBar"></i></div>
+      <p class="hero-note" id="heroNote"></p>
+    </section>
+
+    <div class="toolbar">
+      <div class="chips" id="categoryChips" role="group" aria-label="按类别筛选"></div>
+      <button class="toggle-done" id="toggleDoneBtn" type="button" aria-pressed="false">显示已完成</button>
+    </div>
+
+    <main id="list" class="list" aria-live="polite"></main>
+  </section>
+
+  <section class="view" id="view-memos" role="tabpanel" aria-labelledby="tab-memos" hidden>
+    <div class="section-head">
+      <h2>随手记</h2>
+      <span id="memoCount" class="section-meta"></span>
+    </div>
+    <main id="memoList" class="memo-list" aria-live="polite"></main>
+  </section>
+
+  <section class="view" id="view-mail" role="tabpanel" aria-labelledby="tab-mail" hidden>
+    <div class="section-head">
+      <h2>邮件摘要</h2>
+      <button type="button" class="btn small ghost" id="refreshMailBtn">刷新</button>
+    </div>
+    <p class="section-meta" id="mailMeta"></p>
+    <main id="mailList" class="mail-list" aria-live="polite"></main>
+  </section>
+</div>
+
+<button class="fab" id="addBtn" type="button" aria-label="添加">
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+
+<dialog id="editorDialog" class="sheet" aria-labelledby="editorTitle">
+  <form id="editorForm" novalidate>
+    <div class="sheet-head">
+      <h2 id="editorTitle">添加截止日</h2>
+      <button type="button" class="icon-btn small" data-close="editorDialog" aria-label="关闭">✕</button>
+    </div>
+    <input type="hidden" id="editId">
+    <div class="sheet-body">
+      <label class="field">
+        <span>要做什么</span>
+        <input id="editTitle" type="text" maxlength="40" required placeholder="例如：缴交下学期学费" autocomplete="off">
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span>截止日期</span>
+          <input id="editDate" type="date" required>
+        </label>
+        <label class="field">
+          <span>类别</span>
+          <select id="editCategory"></select>
+        </label>
+      </div>
+      <label class="field">
+        <span>备注（可不填）</span>
+        <textarea id="editNote" rows="2" maxlength="120" placeholder="例如：在 Student Information System 缴费"></textarea>
+      </label>
+      <p class="form-error" id="formError" hidden></p>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger ghost" id="deleteBtn" hidden>删除</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-close="editorDialog">取消</button>
+      <button type="submit" class="btn primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="memoDialog" class="sheet" aria-labelledby="memoTitle">
+  <form id="memoForm">
+    <div class="sheet-head">
+      <h2 id="memoTitle">新备忘</h2>
+      <button type="button" class="icon-btn small" data-close="memoDialog" aria-label="关闭">✕</button>
+    </div>
+    <input type="hidden" id="memoId">
+    <div class="sheet-body">
+      <label class="field">
+        <span>记点什么</span>
+        <textarea id="memoText" rows="5" maxlength="500" placeholder="想到的事、要查的资料、想买的书……" required></textarea>
+      </label>
+      <label class="check-row">
+        <input type="checkbox" id="memoPin">
+        <span>置顶</span>
+      </label>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger ghost" id="memoDeleteBtn" hidden>删除</button>
+      <button type="button" class="btn ghost" id="memoToDeadlineBtn" hidden>转成截止日</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-close="memoDialog">取消</button>
+      <button type="submit" class="btn primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settingsDialog" class="sheet" aria-labelledby="settingsTitle">
+  <div class="sheet-head">
+    <h2 id="settingsTitle">设置</h2>
+    <button type="button" class="icon-btn small" data-close="settingsDialog" aria-label="关闭">✕</button>
+  </div>
+
+  <section class="setting">
+    <h3>外观</h3>
+    <div class="segmented" id="themeSegmented" role="group" aria-label="主题">
+      <button type="button" data-theme-value="auto">自动</button>
+      <button type="button" data-theme-value="light">浅色</button>
+      <button type="button" data-theme-value="dark">深色</button>
+    </div>
+  </section>
+
+  <section class="setting">
+    <h3>同步（GitHub 私有 Gist）</h3>
+    <p class="setting-desc" id="syncDesc">填一个只勾了 Gist 权限的 token，手机和电脑就会自动一致。token 只存在这台设备。</p>
+    <label class="field compact">
+      <span>GitHub token</span>
+      <input id="syncToken" type="password" autocomplete="off" placeholder="ghp_… 或 github_pat_…">
+    </label>
+    <label class="field compact">
+      <span>Gist ID（留空则新建）</span>
+      <input id="syncGistId" type="text" autocomplete="off" placeholder="留空，点下面的按钮自动创建">
+    </label>
+    <div class="setting-grid">
+      <button type="button" class="btn ghost" id="syncConnectBtn">连接 / 新建</button>
+      <button type="button" class="btn ghost" id="syncNowBtn">立即同步</button>
+    </div>
+    <p class="sync-status" id="syncStatusText">尚未配置同步</p>
+  </section>
+
+  <section class="setting">
+    <h3>到期提醒（桌面浏览器）</h3>
+    <p class="setting-desc" id="notifyStatus">开启后，临近截止（3 天内）会弹一次浏览器通知。iPhone 上的推送要等下一版。</p>
+    <button type="button" class="btn ghost block" id="notifyBtn">开启提醒</button>
+    <button type="button" class="btn ghost block" id="installBtn" hidden>安装到桌面 / 主屏幕</button>
+  </section>
+
+  <section class="setting">
+    <h3>数据</h3>
+    <p class="setting-desc">数据默认只存在这台设备；开启同步后，会存进你自己的私有 Gist。</p>
+    <div class="setting-grid">
+      <button type="button" class="btn ghost" id="exportBtn">导出 JSON</button>
+      <button type="button" class="btn ghost" id="importBtn">导入 JSON</button>
+      <button type="button" class="btn ghost danger" id="clearAllBtn">清空全部</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </section>
+
+  <p class="about">PolyU 备忘录 · v2 · 本地优先</p>
+</dialog>
+
+<dialog id="mailSetupDialog" class="sheet" aria-labelledby="mailSetupTitle">
+  <div class="sheet-head">
+    <h2 id="mailSetupTitle">接上学校邮件</h2>
+    <button type="button" class="icon-btn small" data-close="mailSetupDialog" aria-label="关闭">✕</button>
+  </div>
+  <div class="sheet-body setup-steps">
+    <p class="setting-desc">一次性配置，大约 15 分钟。之后每天 12:30，脚本会读你 Gmail 里「学校」标签下的邮件，把摘要写进同一个 Gist。</p>
+    <ol>
+      <li><strong>建标签：</strong>在 Outlook 里设规则，把 PolyU 发来的邮件转发到 <code>7et3rnity@gmail.com</code>。</li>
+      <li><strong>在 Gmail 建过滤器：</strong>收件人是你、来自 polyu 的邮件，自动打上「学校」标签。</li>
+      <li><strong>创建 token：</strong>GitHub → Settings → Developer settings → Fine-grained tokens，只给 Gist 读写。</li>
+      <li><strong>先同步一次：</strong>去「设置 → 同步」填 token 并连接，拿到 Gist ID。</li>
+      <li><strong>部署脚本：</strong>打开 script.google.com 新建项目，粘贴仓库里的 <code>tools/polyu-digest.gs</code>，把 Gist ID 和 token 填进脚本属性。</li>
+      <li><strong>设触发器：</strong>Apps Script → 触发器 → 每天 12:30，运行 <code>dailyDigest</code>。</li>
+    </ol>
+    <p class="setting-desc">细节和排错写在仓库 README 的「邮件摘要」一节。配好后点「刷新」就能看到摘要。</p>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "polyu-memo",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PolyU 备忘录：截止日倒计时、随手记、学校邮件摘要（本地优先 PWA）",
+  "scripts": {
+    "start": "python -m http.server 4173",
+    "test": "node --test tools/sync.test.mjs"
+  }
+}
