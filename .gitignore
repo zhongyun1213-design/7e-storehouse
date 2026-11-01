@@ -1,5 +1,8 @@
 shots/
 tools/polyu-logo.png
+tools/.vapid.json
 node_modules/
+.wrangler/
+worker/.dev.vars
 .DS_Store
 Thumbs.db

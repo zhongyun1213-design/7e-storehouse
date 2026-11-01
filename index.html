@@ -112,6 +112,23 @@
           <select id="editCategory"></select>
         </label>
       </div>
+      <div class="field-row">
+        <label class="field">
+          <span>截止时间（可不填）</span>
+          <input id="editTime" type="time">
+        </label>
+        <label class="field">
+          <span>提前多久推送</span>
+          <select id="editLead">
+            <option value="5">5 分钟</option>
+            <option value="30" selected>30 分钟</option>
+            <option value="60">1 小时</option>
+            <option value="180">3 小时</option>
+            <option value="1440">1 天</option>
+          </select>
+        </label>
+      </div>
+      <p class="field-hint">填了时间才会推送；不填就只是日期倒数。</p>
       <label class="field">
         <span>备注（可不填）</span>
         <textarea id="editNote" rows="2" maxlength="120" placeholder="例如：在 Student Information System 缴费"></textarea>
@@ -197,6 +214,13 @@
     <p class="setting-desc" id="notifyStatus">开启后，临近截止（3 天内）会弹一次浏览器通知。iPhone 上的推送要等下一版。</p>
     <button type="button" class="btn ghost block" id="notifyBtn">开启提醒</button>
     <button type="button" class="btn ghost block" id="installBtn" hidden>安装到桌面 / 主屏幕</button>
+  </section>
+
+  <section class="setting">
+    <h3>推送提醒（Web Push）</h3>
+    <p class="setting-desc" id="pushStatus">开启后，到点（按每条设置的提前量）会收到系统推送，电脑和 iPhone 都能收。iPhone 需要 iOS 16.4 以上，并且先把应用添加到主屏幕。</p>
+    <button type="button" class="btn ghost block" id="pushToggleBtn">开启推送</button>
+    <button type="button" class="btn ghost block" id="pushTestBtn" hidden>发一条测试推送</button>
   </section>
 
   <section class="setting">

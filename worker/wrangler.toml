@@ -1,0 +1,17 @@
+name = "polyu-push"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# 两个 KV 命名空间：SUBS 存订阅，SENT 存「这条已经推过」的去重记录。
+# 部署前把 id 换成 `wrangler kv namespace create SUBS` 输出的真实 id。
+kv_namespaces = [
+  { binding = "SUBS", id = "REPLACE_WITH_SUBS_ID" },
+  { binding = "SENT", id = "REPLACE_WITH_SENT_ID" }
+]
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+GH_GIST = "465edc4ce26f82e7793ac24df2ac8dae"
+VAPID_SUBJECT = "mailto:7et3rnity@gmail.com"

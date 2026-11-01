@@ -13,6 +13,7 @@
 - **倒计时**：下一件事放大显示剩余天数；按月份分组，过期条目单独标红；支持缴费、校历、住宿、签证、学业、活动、实习、生活八类。
 - **随手记**：独立备忘页，可置顶，可一键转成截止日。
 - **邮件摘要**：每天 12:30 由 Apps Script 读 Gmail「学校」标签，规则筛出选课、缴费、实习、活动等信息，写进 Gist；App 里一键把邮件变成截止日或备忘。
+- **推送提醒（Web Push）**：每条截止日可以填截止时间（可不填）和提前量（5 分钟 / 30 分钟 / 1 小时 / 3 小时 / 1 天），到点由 Cloudflare Worker 里每分钟一次的 cron 推到手机和电脑，iPhone 也能收系统通知。
 - **多设备同步**：私有 Gist，自动拉取 + 合并，删除也有墓碑记录，不会一同步就复活。
 - **离线**：Service Worker 缓存全部静态资源，断网也能开。
 - **主题**：跟随系统，或手动浅色 / 深色。品牌色采样自 PolyU 官方 logo（Pantone 201C，`#9D2235`）。
@@ -32,7 +33,39 @@ python -m http.server 4173
 
 - **电脑 Chrome / Edge**：地址栏右侧「安装」图标，或菜单 → 安装。
 - **iPhone**：Safari 打开页面 → 分享 → 添加到主屏幕。
-- iPhone 上的网页推送要等下一版；现在靠 App 内标红和「已过期」分组提醒。
+- iPhone 上要收推送，必须 **iOS 16.4 以上**，而且**从主屏幕图标打开**（Safari 标签页里不算）。
+
+## 推送提醒（Web Push + Cloudflare Worker）
+
+到点提醒不是 App 里轮询，而是一条真正的系统推送，所以关着 App 也能响。
+
+```
+Cloudflare Cron（每分钟）
+   └─ 读私有 Gist 里的 polyu-memo.json
+        └─ 算哪条到了「截止时间 − 提前量」
+             └─ 用 VAPID + aes128gcm 推到 FCM / APNs
+                  └─ 手机 / 电脑的系统通知
+```
+
+**前端**：设置 → 推送提醒 → 开启推送（会申请通知权限，并把订阅登记到 Worker）。
+
+**后台**：`worker/` 是一个独立部署的小 Worker，只做一件事——每分钟检查一次、到点推送。部署步骤：
+
+```powershell
+cd D:\Apps\hk-campus-countdown\worker
+npx wrangler login                      # 浏览器里授权一次
+npx wrangler kv namespace create SUBS   # 把返回的 id 填进 wrangler.toml
+npx wrangler kv namespace create SENT
+npx wrangler secret put GH_TOKEN        # GitHub token（只读 Gist 就够）
+npx wrangler secret put VAPID_PRIVATE_JWK   # tools/.vapid.json 里的 privateJwk
+npx wrangler deploy
+```
+
+部署完把 Worker 地址填到 `push-config.js` 的 `PUSH_WORKER`，重新发布前端即可。
+
+密钥：`node tools/gen-vapid.mjs` 生成一对 VAPID 密钥；公钥进前端，私钥只进 Worker secret，`tools/.vapid.json` 已在 `.gitignore` 里。
+
+去重：每条「条目 + 提醒时刻」推成功后写一条 KV 记录（3 天过期），同一分钟重跑不会重复推；推送失败不写记录，下一分钟自动重试。漏跑最多补 5 分钟。
 
 ## 多设备同步（GitHub 私有 Gist）
 
@@ -90,7 +123,7 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 ## 已知限制
 
 - 日期没有内置校历，全部手填——校历每年变，写死反而会误导。
-- iPhone 上没有后台推送（v1.1 再做 Web Push）。
+- iPhone 的推送依赖 Web Push：要 iOS 16.4+，并且必须「添加到主屏幕」后从图标打开；在 Safari 标签页里不会订阅成功。
 - Gist 方案适合单人；多人共用会互相覆盖。
 - 邮件摘要目前是规则 + 原文摘录，没有模型总结；要接模型可以在 `buildDigest` 里加一步。
 - 摘要里的「建议日期」只是从正文里抓的第一个未来日期，一定要自己确认。
@@ -98,10 +131,12 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 ## 开发 / 测试
 
 ```powershell
-node --test tools/sync.test.mjs   # 合并逻辑 + 扫码链接编解码单测（14 条）
-node tools/e2e.mjs                # 真实 Chrome 端到端：增删改、备忘、邮件、主题、同步报错、离线缓存、移动/桌面布局
-node tools/qr.test.mjs            # 扫码导入：生成二维码 → jsQR 独立解码 → 模拟手机冷启动导入 → 坏链接不污染配置
-node tools/offline.mjs            # 切断网络后刷新，验证 Service Worker 离线可用
+node --test tools/sync.test.mjs        # 合并逻辑 + 扫码链接编解码单测（14 条）
+node --test tools/push-crypto.test.mjs # VAPID 签名、aes128gcm 加解密、到点判定单测（7 条）
+node tools/e2e.mjs                     # 真实 Chrome 端到端：增删改、备忘、邮件、主题、同步报错、离线缓存、移动/桌面布局
+node tools/qr.test.mjs                 # 扫码导入：生成二维码 → jsQR 独立解码 → 模拟手机冷启动导入 → 坏链接不污染配置
+node tools/push-e2e.mjs                # 真机推送：本地起同一份 Worker 代码 → Chrome 订阅 FCM → 真发一条 → 读回通知
+node tools/offline.mjs                 # 切断网络后刷新，验证 Service Worker 离线可用
 ```
 
 端到端测试需要先启动本地服务和带调试端口的 Chrome：
@@ -121,7 +156,11 @@ styles.css            主题变量、布局、深浅色
 app.js                状态、渲染、同步、通知
 sync-core.js          纯函数合并逻辑（可单测）
 sync-link.js          扫码导入链接的编解码（纯函数，可单测）
+push-client.js        浏览器侧订阅 / 退订 / 测试推送
+push-config.js        Worker 地址与 VAPID 公钥
 qrcode.js             二维码生成（Kazuhiko Arase, MIT）
+worker/src/webpush.js VAPID 与 aes128gcm 加密（标准 WebCrypto，Worker 和 Node 共用）
+worker/src/index.js   Worker 路由 + 每分钟 cron 的到点检查
 sw.js                 离线缓存
 manifest.webmanifest  PWA 清单
 icons/                图标（SVG + 192/512/180 PNG）

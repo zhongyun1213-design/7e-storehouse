@@ -2,6 +2,7 @@
 
 import { mergeStates } from './sync-core.js';
 import { buildSyncLink, parseSyncHash } from './sync-link.js';
+import { pushSupported, isStandalone, workerUrl, currentSubscription, enablePush, disablePush, sendTestPush } from './push-client.js';
 
 const STORAGE_KEY = 'polyu-memo.v2';
 const LEGACY_KEY = 'hkcd.v1';
@@ -77,6 +78,11 @@ const els = {
   qrBtn: $('qrBtn'),
   qrPanel: $('qrPanel'),
   qrCanvas: $('qrCanvas'),
+  pushToggleBtn: $('pushToggleBtn'),
+  pushTestBtn: $('pushTestBtn'),
+  pushStatus: $('pushStatus'),
+  editTime: $('editTime'),
+  editLead: $('editLead'),
   notifyBtn: $('notifyBtn'),
   notifyStatus: $('notifyStatus'),
   installBtn: $('installBtn'),
@@ -184,6 +190,8 @@ function normalizeItem(raw, index = 0) {
     date: raw.date,
     category: CATEGORIES[raw.category] ? raw.category : 'calendar',
     note: typeof raw.note === 'string' ? raw.note.slice(0, 300) : '',
+    time: /^\d{2}:\d{2}$/.test(raw.time || '') ? raw.time : '',
+    lead: Number.isFinite(Number(raw.lead)) && Number(raw.lead) >= 0 ? Number(raw.lead) : 30,
     done: Boolean(raw.done),
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now()
@@ -433,6 +441,7 @@ function buildItem(item) {
       el('span', { class: 'item-meta' },
         el('span', { class: 'pill', style: `color:${cat.color};background:${hexToRgba(cat.color, 0.12)}` }, cat.label),
         el('span', { text: shortDate(item.date) }),
+        item.time ? el('span', { class: 'item-time', text: item.time }) : null,
         el('span', { class: `days ${done ? 'calm' : urgencyClass(days)}`, text: done ? '已完成' : daysLabel(days) })),
       item.note ? el('span', { class: 'item-note', text: item.note }) : null));
 }
@@ -634,6 +643,8 @@ function openEditor(item = null, preset = null) {
   els.editTitle.value = data.title || '';
   els.editDate.value = data.date || dateFromOffset(7);
   els.editCategory.value = data.category || (filter !== 'all' ? filter : 'calendar');
+  els.editTime.value = data.time || '';
+  els.editLead.value = String(Number.isFinite(Number(data.lead)) ? Number(data.lead) : 30);
   els.editNote.value = data.note || '';
   els.formError.hidden = true;
   els.deleteBtn.hidden = !item;
@@ -659,6 +670,8 @@ function submitEditor(event) {
   const payload = {
     title: title.slice(0, 40),
     date,
+    time: /^\d{2}:\d{2}$/.test(els.editTime.value) ? els.editTime.value : '',
+    lead: Number(els.editLead.value) >= 0 ? Number(els.editLead.value) : 30,
     category: CATEGORIES[els.editCategory.value] ? els.editCategory.value : 'calendar',
     note: els.editNote.value.trim().slice(0, 120)
   };
@@ -1085,6 +1098,76 @@ function checkNotifications() {
   save();
 }
 
+/* ---------------- Web Push ---------------- */
+
+async function refreshPushUI() {
+  if (!els.pushStatus) return;
+  els.pushTestBtn.hidden = true;
+  if (!pushSupported()) {
+    els.pushStatus.textContent = '这个浏览器不支持 Web Push；电脑上先靠上面的「打开应用时提醒」。';
+    els.pushToggleBtn.hidden = true;
+    return;
+  }
+  if (isIOS() && !isStandalone()) {
+    els.pushStatus.textContent = 'iPhone 要先把应用「添加到主屏幕」，再从主屏幕打开，才能开启推送。';
+    els.pushToggleBtn.hidden = true;
+    return;
+  }
+  if (!workerUrl()) {
+    els.pushStatus.textContent = '推送服务还没部署好（Worker 地址一填上就能开）。';
+    els.pushToggleBtn.hidden = true;
+    return;
+  }
+  els.pushToggleBtn.hidden = false;
+  let sub = null;
+  try {
+    sub = await currentSubscription();
+  } catch (err) {
+    sub = null;
+  }
+  if (sub) {
+    els.pushToggleBtn.textContent = '关闭推送';
+    els.pushTestBtn.hidden = false;
+    els.pushStatus.textContent = Notification.permission === 'granted'
+      ? '这台设备已开启推送：到点前按你设的提前量推一条系统通知。'
+      : '这台设备登记过了，但系统通知权限被关掉了，去浏览器设置里放开。';
+  } else {
+    els.pushToggleBtn.textContent = '开启推送';
+    els.pushStatus.textContent = '还没开启。开启后会登记这台设备，到点前按提前量推送。';
+  }
+}
+
+async function onPushToggle() {
+  els.pushToggleBtn.disabled = true;
+  try {
+    const sub = await currentSubscription().catch(() => null);
+    if (sub) {
+      await disablePush();
+      toast('已关闭推送');
+    } else {
+      await enablePush();
+      toast('推送已开启');
+    }
+  } catch (err) {
+    toast(err.message || '推送操作失败');
+  } finally {
+    els.pushToggleBtn.disabled = false;
+    await refreshPushUI();
+  }
+}
+
+async function onPushTest() {
+  els.pushTestBtn.disabled = true;
+  try {
+    await sendTestPush();
+    toast('测试推送已发出');
+  } catch (err) {
+    toast(err.message || '测试推送失败');
+  } finally {
+    els.pushTestBtn.disabled = false;
+  }
+}
+
 /* ---------------- data ---------------- */
 
 function exportData() {
@@ -1199,6 +1282,7 @@ function wire() {
     els.syncToken.value = state.settings.sync.token;
     els.syncGistId.value = state.settings.sync.gistId;
     updateNotifyUI();
+    refreshPushUI();
     renderSyncUI();
     els.settingsDialog.showModal();
   });
@@ -1235,6 +1319,8 @@ function wire() {
   els.refreshMailBtn.addEventListener('click', () => syncNow(true));
 
   els.notifyBtn.addEventListener('click', onNotifyClick);
+  els.pushToggleBtn.addEventListener('click', onPushToggle);
+  els.pushTestBtn.addEventListener('click', onPushTest);
   els.installBtn.addEventListener('click', onInstallClick);
   els.exportBtn.addEventListener('click', exportData);
   els.importBtn.addEventListener('click', () => els.importFile.click());
