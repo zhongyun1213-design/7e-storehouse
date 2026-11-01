@@ -777,6 +777,26 @@ form.sheet-body { padding: 0 20px 20px; }
 .sync-status.error { color: var(--danger); }
 .sync-status.ok { color: var(--ok); }
 
+.qr-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--card-soft);
+  text-align: center;
+}
+.qr-panel canvas {
+  display: block;
+  width: 208px;
+  height: 208px;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #ffffff;
+  image-rendering: pixelated;
+}
+.qr-hint { margin: 10px 0 0; font-size: 12px; }
+
 .setup-steps ol { margin: 6px 0 14px; padding-left: 20px; }
 .setup-steps li { margin-bottom: 9px; font-size: 13px; line-height: 1.65; color: var(--ink-soft); }
 .setup-steps code { padding: 1px 5px; border-radius: 5px; background: var(--bg-soft); font-size: 12px; }

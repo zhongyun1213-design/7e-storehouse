@@ -5,6 +5,8 @@ const ASSETS = [
   'styles.css',
   'app.js',
   'sync-core.js',
+  'sync-link.js',
+  'qrcode.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-180.png',

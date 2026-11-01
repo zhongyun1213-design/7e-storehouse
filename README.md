@@ -41,8 +41,11 @@ python -m http.server 4173
 3. 打开 App → 设置 → 同步，粘贴 token，Gist ID 留空，点「连接 / 新建」。
 4. 成功后会创建一个私有 Gist（`polyu-memo.json` + `polyu-digest.json`），把显示的 Gist ID 抄下来。
 5. 在另一台设备上填同一个 token + 同一个 Gist ID，点「连接 / 新建」。
+6. **手机不想手打 token？** 在电脑上点「扫码导入到手机」，用手机相机或 Safari 扫这张码，token 和 Gist ID 会自动填好并开始同步。二维码等同密码，只在自己屏幕上看，3 分钟后自动收起。
 
 同步规则：同一条记录取更新时间较新的版本；删除会写墓碑，避免旧设备把条目带回来。冲突窗口是「谁最后改谁赢」，适合单人双设备。
+
+扫码导入的实现：配置被打包进 `#s=…` 的 base64url 载荷，手机打开链接后写进本机 `localStorage`，随即用 `history.replaceState` 把 hash 擦掉，不留痕在地址栏和浏览历史里；版本号不对、载荷坏掉都直接忽略，不会覆盖已有配置。
 
 ## 邮件摘要（可选）
 
@@ -95,8 +98,9 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 ## 开发 / 测试
 
 ```powershell
-node --test tools/sync.test.mjs   # 同步合并逻辑单测（10 条）
+node --test tools/sync.test.mjs   # 合并逻辑 + 扫码链接编解码单测（14 条）
 node tools/e2e.mjs                # 真实 Chrome 端到端：增删改、备忘、邮件、主题、同步报错、离线缓存、移动/桌面布局
+node tools/qr.test.mjs            # 扫码导入：生成二维码 → jsQR 独立解码 → 模拟手机冷启动导入 → 坏链接不污染配置
 node tools/offline.mjs            # 切断网络后刷新，验证 Service Worker 离线可用
 ```
 
@@ -116,6 +120,8 @@ index.html            页面结构（三个标签页 + 四个弹窗）
 styles.css            主题变量、布局、深浅色
 app.js                状态、渲染、同步、通知
 sync-core.js          纯函数合并逻辑（可单测）
+sync-link.js          扫码导入链接的编解码（纯函数，可单测）
+qrcode.js             二维码生成（Kazuhiko Arase, MIT）
 sw.js                 离线缓存
 manifest.webmanifest  PWA 清单
 icons/                图标（SVG + 192/512/180 PNG）

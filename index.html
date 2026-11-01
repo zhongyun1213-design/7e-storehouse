@@ -185,6 +185,11 @@
       <button type="button" class="btn ghost" id="syncNowBtn">立即同步</button>
     </div>
     <p class="sync-status" id="syncStatusText">尚未配置同步</p>
+    <button type="button" class="btn ghost block qr-open" id="qrBtn">扫码导入到手机</button>
+    <div class="qr-panel" id="qrPanel" hidden>
+      <canvas id="qrCanvas" width="240" height="240" role="img" aria-label="同步配置二维码"></canvas>
+      <p class="setting-desc qr-hint" id="qrHint">用手机相机或 Safari 扫这张码，token 和 Gist ID 会自动填到手机上。这张码等同密码，别截图外传；3 分钟后自动消失。</p>
+    </div>
   </section>
 
   <section class="setting">
@@ -229,6 +234,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="qrcode.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

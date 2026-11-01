@@ -1,6 +1,7 @@
 'use strict';
 
 import { mergeStates } from './sync-core.js';
+import { buildSyncLink, parseSyncHash } from './sync-link.js';
 
 const STORAGE_KEY = 'polyu-memo.v2';
 const LEGACY_KEY = 'hkcd.v1';
@@ -73,6 +74,9 @@ const els = {
   syncNowBtn: $('syncNowBtn'),
   syncStatusText: $('syncStatusText'),
   syncDesc: $('syncDesc'),
+  qrBtn: $('qrBtn'),
+  qrPanel: $('qrPanel'),
+  qrCanvas: $('qrCanvas'),
   notifyBtn: $('notifyBtn'),
   notifyStatus: $('notifyStatus'),
   installBtn: $('installBtn'),
@@ -91,6 +95,7 @@ let showDone = false;
 let syncing = false;
 let syncError = '';
 let syncTimer = null;
+let qrTimer = null;
 let deferredInstall = null;
 let lastRenderedDay = '';
 let toastTimer = null;
@@ -948,6 +953,64 @@ async function connectSync() {
   }
 }
 
+/* ---------------- 扫码导入 ---------------- */
+
+function appBaseUrl() {
+  return `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
+}
+
+function hideQrPanel() {
+  clearTimeout(qrTimer);
+  if (!els.qrPanel || els.qrPanel.hidden) return;
+  const ctx = els.qrCanvas.getContext('2d');
+  ctx.clearRect(0, 0, els.qrCanvas.width, els.qrCanvas.height);
+  els.qrPanel.hidden = true;
+}
+
+function renderQrPanel() {
+  const sync = state.settings.sync;
+  if (!sync.token || !sync.gistId) {
+    hideQrPanel();
+    toast('先在电脑上连好同步，再生成二维码');
+    return;
+  }
+  if (typeof window.qrcode !== 'function') {
+    toast('二维码组件没加载出来，刷新页面再试');
+    return;
+  }
+  let link;
+  try {
+    link = buildSyncLink(appBaseUrl(), sync);
+  } catch (err) {
+    toast(err.message || '生成二维码失败');
+    return;
+  }
+  const qr = window.qrcode(0, 'M');
+  qr.addData(link);
+  qr.make();
+
+  const quiet = 4;
+  const count = qr.getModuleCount();
+  const total = count + quiet * 2;
+  const scale = total > 80 ? 3 : 4;
+  const canvas = els.qrCanvas;
+  canvas.width = total * scale;
+  canvas.height = total * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000000';
+  for (let row = 0; row < count; row += 1) {
+    for (let col = 0; col < count; col += 1) {
+      if (qr.isDark(row, col)) ctx.fillRect((col + quiet) * scale, (row + quiet) * scale, scale, scale);
+    }
+  }
+
+  els.qrPanel.hidden = false;
+  clearTimeout(qrTimer);
+  qrTimer = setTimeout(hideQrPanel, 180000);
+}
+
 /* ---------------- notifications ---------------- */
 
 function notificationsSupported() {
@@ -1118,6 +1181,7 @@ async function onInstallClick() {
 
 function closeDialog(dialog) {
   if (dialog && dialog.open) dialog.close();
+  if (dialog === els.settingsDialog) hideQrPanel();
 }
 
 /* ---------------- wiring ---------------- */
@@ -1167,6 +1231,7 @@ function wire() {
 
   els.syncConnectBtn.addEventListener('click', connectSync);
   els.syncNowBtn.addEventListener('click', () => syncNow(true));
+  els.qrBtn.addEventListener('click', renderQrPanel);
   els.refreshMailBtn.addEventListener('click', () => syncNow(true));
 
   els.notifyBtn.addEventListener('click', onNotifyClick);
@@ -1210,9 +1275,30 @@ function wire() {
 
 /* ---------------- boot ---------------- */
 
+function consumeSyncHash() {
+  if (!location.hash.includes('#s=')) return;
+  const imported = parseSyncHash(location.hash);
+  const cleanUrl = location.pathname + location.search;
+  if (!imported) {
+    history.replaceState(null, '', cleanUrl);
+    toast('二维码里的同步信息无效，重新生成一张');
+    return;
+  }
+  state.settings.sync.token = imported.token;
+  state.settings.sync.gistId = imported.gistId;
+  state.settings.sync.lastSync = 0;
+  save();
+  history.replaceState(null, '', cleanUrl);
+  setTimeout(() => {
+    renderSyncUI();
+    toast('已导入同步配置，开始同步…');
+  }, 500);
+}
+
 function boot() {
   state = loadState();
   applyTheme();
+  consumeSyncHash();
   wire();
   setTab('countdown');
   renderAll();
