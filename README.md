@@ -146,11 +146,29 @@ git add -A; git commit -m "..."; git push
 
 设置页底部会显示当前版本号（例如 `PolyU 备忘录 · 2.2.0 · 2026-11-01`），手机上打开一次就能核对；旁边的「检查更新」可以手动催一次。
 
+## Canvas 作业自动导入
+
+Canvas 的 API 令牌可能被学校管住，但**日历订阅**一般还开着，走这条：
+
+1. Canvas → Calendar → 右下角 **Calendar Feed**，复制那个 `.ics` 链接（链接本身是凭证）。
+2. 存进 Worker：`npx wrangler secret put CANVAS_ICS_URL`。
+3. 之后每天香港时间 **07:00**，Worker 拉一次订阅，把作业写进 Gist，手机电脑同步后就能看到。
+
+规则：
+
+- 只认 `event-assignment-*` 事件，按香港时间换算日期和截止时分；只有日期没有时间的作业不造时间。
+- 截止日早于「今天 − 7 天」的旧作业不导，避免把往年作业翻出来。
+- 同一个作业用 Canvas 的 id 去重；你手动录入过的同一条会被「认领」，不会生成两条。
+- 已勾完成的不会被同步翻回未完成；你删掉的不会被重新加回来。
+
+注意：日历订阅不知道你有没有交作业，它只给截止时间。所以已交的作业请自己勾掉，勾掉之后就会永久跳过。设置页的「从 Canvas 拉作业」可以随时手动触发一次。
+
 ## 开发 / 测试
 
 ```powershell
 node --test tools/sync.test.mjs        # 合并逻辑 + 扫码链接编解码单测（14 条）
-node --test tools/push-crypto.test.mjs # VAPID 签名、aes128gcm 加解密、到点判定单测（7 条）
+node --test tools/push-crypto.test.mjs # VAPID 签名、aes128gcm 加解密、到点判定单测（8 条）
+node --test tools/canvas.test.mjs      # Canvas .ics 解析、去重、认领、墓碑单测（10 条）
 node tools/e2e.mjs                     # 真实 Chrome 端到端：增删改、备忘、邮件、主题、同步报错、离线缓存、移动/桌面布局
 node tools/qr.test.mjs                 # 扫码导入：生成二维码 → jsQR 独立解码 → 模拟手机冷启动导入 → 坏链接不污染配置
 node tools/push-e2e.mjs                # 真机推送：本地起同一份 Worker 代码 → Chrome 订阅 FCM → 真发一条 → 读回通知

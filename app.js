@@ -1111,8 +1111,8 @@ async function onCanvasSync() {
     if (result && result.ok === false && result.reason === 'no-feed') {
       toast('还没配置 Canvas 订阅地址');
     } else {
-      toast(`Canvas：新增 ${result.created || 0} 条，更新 ${result.updated || 0} 条，跳过 ${result.skipped || 0} 条`);
       await syncNow(true);
+      toast(`Canvas：新增 ${result.created || 0} 条，更新 ${result.updated || 0} 条，跳过 ${result.skipped || 0} 条`);
     }
   } catch (err) {
     toast(err.message || '拉取 Canvas 失败');
