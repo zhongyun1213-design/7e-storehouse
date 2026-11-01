@@ -1,6 +1,7 @@
 // 离线验证：切断网络后刷新，页面应完全由 Service Worker 缓存提供。
 const targets = await (await fetch('http://127.0.0.1:9222/json/list')).json();
-const page = targets.find((t) => t.type === 'page' && t.url.includes('4173'));
+const page = targets.find((t) => t.type === 'page' && (t.url.includes('4173') || t.url.includes('7e-storehouse')))
+  || targets.find((t) => t.type === 'page');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 let id = 0;

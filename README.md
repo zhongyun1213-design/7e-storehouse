@@ -3,6 +3,8 @@
 给香港理工大学（PolyU）学生用的轻量工具：**截止日倒计时 + 随手记 + 学校邮件摘要**。
 纯前端 PWA，数据存在本机，用你自己的私有 Gist 在 iPhone 和电脑之间同步，可以装到主屏幕离线用。
 
+线上地址：<https://zhongyun1213-design.github.io/7e-storehouse/>
+
 > 现在这一版是 v2：截止日、备忘、同步、安装、邮件摘要的展示层都已完成。
 > 邮件摘要的抓取脚本在 `tools/polyu-digest.gs`，需要你按下面步骤在自己 Google 账号里跑一次。
 

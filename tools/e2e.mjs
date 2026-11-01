@@ -3,11 +3,13 @@
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 
-const BASE = 'http://127.0.0.1:4173/';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:4173/';
 const SHOT_DIR = new URL('../shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 
 const targets = await (await fetch('http://127.0.0.1:9222/json/list')).json();
-const page = targets.find((t) => t.type === 'page' && t.url.startsWith(BASE));
+const page = targets.find((t) => t.type === 'page' && t.url.startsWith(BASE))
+  || targets.find((t) => t.type === 'page' && (t.url.includes('4173') || t.url.includes('7e-storehouse')))
+  || targets.find((t) => t.type === 'page');
 if (!page) throw new Error('找不到打开的页面，先启动 Chrome 并访问 ' + BASE);
 
 const ws = new WebSocket(page.webSocketDebuggerUrl);
