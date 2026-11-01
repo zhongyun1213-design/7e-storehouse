@@ -2,6 +2,7 @@
 
 import { mergeStates } from './sync-core.js';
 import { buildSyncLink, parseSyncHash } from './sync-link.js';
+import { BUILD } from './version.js';
 import { pushSupported, isStandalone, workerUrl, currentSubscription, enablePush, disablePush, sendTestPush } from './push-client.js';
 
 const STORAGE_KEY = 'polyu-memo.v2';
@@ -78,6 +79,8 @@ const els = {
   qrBtn: $('qrBtn'),
   qrPanel: $('qrPanel'),
   qrCanvas: $('qrCanvas'),
+  aboutLine: $('aboutLine'),
+  checkUpdateBtn: $('checkUpdateBtn'),
   pushToggleBtn: $('pushToggleBtn'),
   pushTestBtn: $('pushTestBtn'),
   pushStatus: $('pushStatus'),
@@ -1229,12 +1232,45 @@ function clearAll() {
   toast('已清空');
 }
 
-/* ---------------- install / sw ---------------- */
+/* ---------------- install / sw / 更新 ---------------- */
+
+const hadController = 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+let updateCheckedAt = 0;
+let reloadingForUpdate = false;
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (!/^https?:$/.test(location.protocol)) return;
   navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker 注册失败', err));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloadingForUpdate) return;
+    reloadingForUpdate = true;
+    toast('已更新，正在刷新…');
+    setTimeout(() => location.reload(), 400);
+  });
+  setTimeout(() => checkForUpdate(false), 4000);
+}
+
+async function checkForUpdate(manual = false) {
+  if (!('serviceWorker' in navigator)) {
+    if (manual) toast('这个浏览器不支持 Service Worker');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      if (manual) toast('Service Worker 还没装好');
+      return;
+    }
+    await reg.update();
+    updateCheckedAt = Date.now();
+    if (manual) {
+      const pending = reg.installing || reg.waiting;
+      toast(pending ? '发现新版本，正在切换…' : `已经是最新版本（${BUILD}）`);
+    }
+  } catch (err) {
+    if (manual) toast('检查更新失败，稍后再试');
+  }
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -1321,6 +1357,7 @@ function wire() {
   els.notifyBtn.addEventListener('click', onNotifyClick);
   els.pushToggleBtn.addEventListener('click', onPushToggle);
   els.pushTestBtn.addEventListener('click', onPushTest);
+  els.checkUpdateBtn.addEventListener('click', () => checkForUpdate(true));
   els.installBtn.addEventListener('click', onInstallClick);
   els.exportBtn.addEventListener('click', exportData);
   els.importBtn.addEventListener('click', () => els.importFile.click());
@@ -1349,6 +1386,7 @@ function wire() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (lastRenderedDay !== todayISO()) renderAll();
+    if (Date.now() - updateCheckedAt > 5 * 60 * 1000) checkForUpdate(false);
     if (state.settings.sync.token && state.settings.sync.gistId) syncNow(false);
     checkNotifications();
   });
@@ -1386,6 +1424,7 @@ function boot() {
   applyTheme();
   consumeSyncHash();
   wire();
+  if (els.aboutLine) els.aboutLine.textContent = `PolyU 备忘录 · ${BUILD} · 本地优先`;
   setTab('countdown');
   renderAll();
   registerServiceWorker();
