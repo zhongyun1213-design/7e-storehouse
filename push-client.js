@@ -109,3 +109,8 @@ export async function disablePush() {
 export async function sendTestPush() {
   return post('/test', {});
 }
+
+/** 让 Worker 立刻拉一次 Canvas 作业日历 */
+export async function triggerCanvasSync() {
+  return post('/canvas', {});
+}

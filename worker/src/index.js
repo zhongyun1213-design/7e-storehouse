@@ -1,4 +1,5 @@
 import { sendPush, parseSubscription } from './webpush.js';
+import { canvasItemsFromIcs, mergeCanvasItems } from './canvas.js';
 
 const HKT_OFFSET = 8 * 60 * 60 * 1000;
 const CATCH_UP_MS = 5 * 60 * 1000;
@@ -63,6 +64,57 @@ export async function loadState(env) {
     content = await raw.text();
   }
   return JSON.parse(content);
+}
+
+export async function saveState(env, state) {
+  const headers = {
+    Authorization: `Bearer ${env.GH_TOKEN}`,
+    'User-Agent': 'polyu-memo-push',
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+  const res = await fetch(`https://api.github.com/gists/${env.GH_GIST}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ files: { 'polyu-memo.json': { content: JSON.stringify(state, null, 2) } } })
+  });
+  if (!res.ok) throw new Error(`写入 Gist 失败 ${res.status}`);
+}
+
+/** 拉一次 Canvas 作业日历，合并进 Gist。 */
+export async function syncCanvas(env, now = Date.now()) {
+  if (!env.CANVAS_ICS_URL) return { ok: false, reason: 'no-feed' };
+  const res = await fetch(env.CANVAS_ICS_URL, {
+    cache: 'no-store',
+    headers: {
+      // Canvas 的 WAF 会拦没有浏览器 UA 的请求（Cloudflare 出口容易被判成爬虫）
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      Accept: 'text/calendar,text/plain,*/*',
+      'Accept-Language': 'zh-HK,zh;q=0.9,en;q=0.8'
+    }
+  });
+  if (!res.ok) throw new Error(`拉取 Canvas 日历失败 ${res.status}`);
+  const incoming = canvasItemsFromIcs(await res.text(), now);
+  const state = await loadState(env);
+  const result = mergeCanvasItems(state, incoming, now);
+  if (result.created || result.updated) await saveState(env, state);
+  return { ok: true, ...result };
+}
+
+/** 每天香港时间 7 点跑一次，用 KV 记当天已跑过。 */
+async function maybeSyncCanvas(env, now = Date.now()) {
+  if (!env.CANVAS_ICS_URL) return;
+  const hkt = new Date(now + 8 * 3600 * 1000);
+  if (hkt.getUTCHours() !== 7) return;
+  const day = hkt.toISOString().slice(0, 10);
+  const key = `canvas:${day}`;
+  if (await env.SENT.get(key)) return;
+  try {
+    const result = await syncCanvas(env, now);
+    await env.SENT.put(key, JSON.stringify(result), { expirationTtl: 7 * 86400 });
+  } catch (err) {
+    console.warn('canvas sync failed', String(err));
+  }
 }
 
 /** 算出这一分钟该推哪些条目。纯函数，方便单测。 */
@@ -181,10 +233,19 @@ export default {
       return json({ ok: results.some((r) => r.ok), results });
     }
 
+    if (url.pathname === '/canvas' && request.method === 'POST') {
+      try {
+        return json(await syncCanvas(env));
+      } catch (err) {
+        return json({ ok: false, error: String(err.message || err) }, 500);
+      }
+    }
+
     return json({ ok: false, error: 'not found' }, 404);
   },
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runDue(env).catch((err) => console.error('runDue failed', String(err))));
+    ctx.waitUntil(maybeSyncCanvas(env));
   }
 };

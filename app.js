@@ -3,7 +3,7 @@
 import { mergeStates } from './sync-core.js';
 import { buildSyncLink, parseSyncHash } from './sync-link.js';
 import { BUILD } from './version.js';
-import { pushSupported, isStandalone, workerUrl, currentSubscription, enablePush, disablePush, sendTestPush } from './push-client.js';
+import { pushSupported, isStandalone, workerUrl, currentSubscription, enablePush, disablePush, sendTestPush, triggerCanvasSync } from './push-client.js';
 
 const STORAGE_KEY = 'polyu-memo.v2';
 const LEGACY_KEY = 'hkcd.v1';
@@ -80,6 +80,7 @@ const els = {
   qrPanel: $('qrPanel'),
   qrCanvas: $('qrCanvas'),
   aboutLine: $('aboutLine'),
+  canvasSyncBtn: $('canvasSyncBtn'),
   checkUpdateBtn: $('checkUpdateBtn'),
   pushToggleBtn: $('pushToggleBtn'),
   pushTestBtn: $('pushTestBtn'),
@@ -1100,6 +1101,27 @@ async function onPushTest() {
   }
 }
 
+/* ---------------- Canvas 作业导入 ---------------- */
+
+async function onCanvasSync() {
+  els.canvasSyncBtn.disabled = true;
+  els.canvasSyncBtn.textContent = '正在从 Canvas 拉取…';
+  try {
+    const result = await triggerCanvasSync();
+    if (result && result.ok === false && result.reason === 'no-feed') {
+      toast('还没配置 Canvas 订阅地址');
+    } else {
+      toast(`Canvas：新增 ${result.created || 0} 条，更新 ${result.updated || 0} 条，跳过 ${result.skipped || 0} 条`);
+      await syncNow(true);
+    }
+  } catch (err) {
+    toast(err.message || '拉取 Canvas 失败');
+  } finally {
+    els.canvasSyncBtn.disabled = false;
+    els.canvasSyncBtn.textContent = '从 Canvas 拉作业';
+  }
+}
+
 /* ---------------- data ---------------- */
 
 function exportData() {
@@ -1285,6 +1307,7 @@ function wire() {
   els.pushToggleBtn.addEventListener('click', onPushToggle);
   els.pushTestBtn.addEventListener('click', onPushTest);
   els.checkUpdateBtn.addEventListener('click', () => checkForUpdate(true));
+  els.canvasSyncBtn.addEventListener('click', onCanvasSync);
   els.installBtn.addEventListener('click', onInstallClick);
   els.exportBtn.addEventListener('click', exportData);
   els.importBtn.addEventListener('click', () => els.importFile.click());
