@@ -128,6 +128,24 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 - 邮件摘要目前是规则 + 原文摘录，没有模型总结；要接模型可以在 `buildDigest` 里加一步。
 - 摘要里的「建议日期」只是从正文里抓的第一个未来日期，一定要自己确认。
 
+## 发版与自动更新
+
+装到主屏幕的 PWA 不需要重新添加，更新靠三件事一起保证：
+
+1. **HTML 与代码走网络优先**：Service Worker 对导航和 js/css 一律先拿网络（再用缓存兜底），断网时才用旧缓存。
+2. **资源地址带版本戳**：`node tools/stamp.mjs` 会把 `index.html` 里的 `app.js` / `styles.css` 改成 `?v=<版本>`。就算设备上还跑着旧的 Service Worker，新地址也会绕过旧缓存直接拿新文件。
+3. **换版本后自动刷新**：新的 Service Worker 接管时，页面会弹一句「已更新，正在刷新」并自己刷一次。
+
+发版流程：
+
+```powershell
+# 1. 改 version.js 里的 BUILD
+node tools/stamp.mjs      # 2. 写入资源版本戳
+git add -A; git commit -m "..."; git push
+```
+
+设置页底部会显示当前版本号（例如 `PolyU 备忘录 · 2.2.0 · 2026-11-01`），手机上打开一次就能核对；旁边的「检查更新」可以手动催一次。
+
 ## 开发 / 测试
 
 ```powershell
@@ -137,6 +155,7 @@ node tools/e2e.mjs                     # 真实 Chrome 端到端：增删改、�
 node tools/qr.test.mjs                 # 扫码导入：生成二维码 → jsQR 独立解码 → 模拟手机冷启动导入 → 坏链接不污染配置
 node tools/push-e2e.mjs                # 真机推送：本地起同一份 Worker 代码 → Chrome 订阅 FCM → 真发一条 → 读回通知
 node tools/offline.mjs                 # 切断网络后刷新，验证 Service Worker 离线可用
+node tools/update.test.mjs             # 自动更新：改 version.js 后只刷新一次，断言页面已经是新版本
 ```
 
 端到端测试需要先启动本地服务和带调试端口的 Chrome：
