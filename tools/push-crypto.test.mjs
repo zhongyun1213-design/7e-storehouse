@@ -94,6 +94,16 @@ test('VAPID 头的 JWT 签名验得过，k= 就是公钥', async () => {
   assert.equal(keyPart, vapidPublicKey(privateJwk), 'k= 与私钥推导出的公钥一致');
 });
 
+test('VAPID 私钥以字符串形式传入也能用（Worker secret 就是字符串）', async () => {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+  const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+  const asString = await vapidHeader(JSON.stringify(jwk), 'https://web.push.apple.com/abc');
+  const asObject = await vapidHeader(jwk, 'https://web.push.apple.com/abc');
+  assert.match(asString, /^vapid t=/);
+  assert.equal(asString.split(', k=')[1], asObject.split(', k=')[1]);
+  await assert.rejects(() => vapidHeader(JSON.stringify({ kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y }), 'https://x.test/'), /缺少 d/);
+});
+
 const baseItem = {
   id: 'it-1',
   title: '测试作业',

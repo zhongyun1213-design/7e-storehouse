@@ -77,20 +77,33 @@ export async function encryptPayload(subscription, message) {
 
 /** 从 VAPID 私钥 JWK 推出 65 字节公钥（b64url）。 */
 export function vapidPublicKey(privateJwk) {
-  const x = fromB64url(privateJwk.x);
-  const y = fromB64url(privateJwk.y);
+  const jwk = normalizeJwk(privateJwk);
+  const x = fromB64url(jwk.x);
+  const y = fromB64url(jwk.y);
   return b64url(concat(new Uint8Array([4]), x, y));
+}
+
+/** Worker 的 secret 是字符串，测试里传的是对象，这里统一成对象。 */
+function normalizeJwk(privateJwk) {
+  if (typeof privateJwk === 'string') {
+    const parsed = JSON.parse(privateJwk);
+    if (!parsed || parsed.kty !== 'EC' || !parsed.d) throw new Error('VAPID 私钥不是完整的 P-256 JWK（缺少 d）');
+    return parsed;
+  }
+  if (!privateJwk || privateJwk.kty !== 'EC' || !privateJwk.d) throw new Error('VAPID 私钥不是完整的 P-256 JWK（缺少 d）');
+  return privateJwk;
 }
 
 /** 生成 Authorization 头：vapid t=<jwt>, k=<public key> */
 export async function vapidHeader(privateJwk, endpoint, subject = 'mailto:noreply@example.com') {
+  const jwk = normalizeJwk(privateJwk);
   const aud = new URL(endpoint).origin;
   const signingInput = `${b64url(encoder.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })))}.${b64url(
     encoder.encode(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: subject }))
   )}`;
-  const key = await crypto.subtle.importKey('jwk', { ...privateJwk, key_ops: ['sign'] }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, d: jwk.d, key_ops: ['sign'], ext: true }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
   const signature = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, encoder.encode(signingInput)));
-  return `vapid t=${signingInput}.${b64url(signature)}, k=${vapidPublicKey(privateJwk)}`;
+  return `vapid t=${signingInput}.${b64url(signature)}, k=${vapidPublicKey(jwk)}`;
 }
 
 /** 向一个订阅推送载荷。返回 { status, ok, error }。 */
