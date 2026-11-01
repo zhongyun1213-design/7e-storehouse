@@ -86,8 +86,6 @@ const els = {
   pushStatus: $('pushStatus'),
   editTime: $('editTime'),
   editLead: $('editLead'),
-  notifyBtn: $('notifyBtn'),
-  notifyStatus: $('notifyStatus'),
   installBtn: $('installBtn'),
   exportBtn: $('exportBtn'),
   importBtn: $('importBtn'),
@@ -690,7 +688,6 @@ function submitEditor(event) {
   renderAll();
   toast(id ? '已更新' : '已添加');
   scheduleSync();
-  checkNotifications();
 }
 
 function deleteItem() {
@@ -1027,78 +1024,10 @@ function renderQrPanel() {
   qrTimer = setTimeout(hideQrPanel, 180000);
 }
 
-/* ---------------- notifications ---------------- */
-
-function notificationsSupported() {
-  return typeof window.Notification !== 'undefined';
-}
+/* ---------------- 平台判断 ---------------- */
 
 function isIOS() {
   return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-
-function sendNotification(title, body) {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return;
-  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-    navigator.serviceWorker.ready
-      .then((reg) => reg.showNotification(title, { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'polyu-due' }))
-      .catch(() => { try { new Notification(title, { body }); } catch (err) { /* 忽略 */ } });
-  } else {
-    try { new Notification(title, { body }); } catch (err) { /* 忽略 */ }
-  }
-}
-
-function updateNotifyUI() {
-  if (!notificationsSupported()) {
-    els.notifyStatus.textContent = '这个浏览器不支持系统通知，清单里的天数会标红提醒你。';
-    els.notifyBtn.hidden = true;
-    return;
-  }
-  if (isIOS()) {
-    els.notifyStatus.textContent = 'iPhone 上的网页推送要等下一版（需要装到主屏幕并接推送服务）。现在先靠 App 里的标红和「已过期」分组。';
-    els.notifyBtn.hidden = true;
-    return;
-  }
-  els.notifyBtn.hidden = false;
-  if (Notification.permission === 'granted') {
-    els.notifyStatus.textContent = '提醒已开启：打开应用时，3 天内到期的条目会弹通知。';
-    els.notifyBtn.textContent = '发一条测试通知';
-  } else if (Notification.permission === 'denied') {
-    els.notifyStatus.textContent = '通知权限被拒绝了，可以在浏览器的网站设置里重新允许。';
-    els.notifyBtn.textContent = '重新申请';
-  } else {
-    els.notifyStatus.textContent = '开启后，临近截止（3 天内）会弹一次浏览器通知。';
-    els.notifyBtn.textContent = '开启提醒';
-  }
-}
-
-async function onNotifyClick() {
-  if (!notificationsSupported()) return;
-  if (Notification.permission === 'granted') {
-    sendNotification('测试通知', '提醒功能正常，临近截止时会像这样提醒你。');
-    return;
-  }
-  const permission = await Notification.requestPermission();
-  updateNotifyUI();
-  if (permission === 'granted') {
-    sendNotification('提醒已开启', '3 天内的截止日会通知你。');
-    toast('提醒已开启');
-  } else {
-    toast('没有拿到通知权限');
-  }
-}
-
-function checkNotifications() {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return;
-  const today = todayISO();
-  if (state.meta.lastNotify === today) return;
-  const due = state.items
-    .filter((it) => !it.done && daysUntil(it.date) >= 0 && daysUntil(it.date) <= 3)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (!due.length) return;
-  sendNotification('PolyU 备忘录 · 快到了', due.map((it) => `${it.title}（${daysLabel(daysUntil(it.date))}）`).join('；'));
-  state.meta.lastNotify = today;
-  save();
 }
 
 /* ---------------- Web Push ---------------- */
@@ -1317,7 +1246,6 @@ function wire() {
   els.settingsBtn.addEventListener('click', () => {
     els.syncToken.value = state.settings.sync.token;
     els.syncGistId.value = state.settings.sync.gistId;
-    updateNotifyUI();
     refreshPushUI();
     renderSyncUI();
     els.settingsDialog.showModal();
@@ -1354,7 +1282,6 @@ function wire() {
   els.qrBtn.addEventListener('click', renderQrPanel);
   els.refreshMailBtn.addEventListener('click', () => syncNow(true));
 
-  els.notifyBtn.addEventListener('click', onNotifyClick);
   els.pushToggleBtn.addEventListener('click', onPushToggle);
   els.pushTestBtn.addEventListener('click', onPushTest);
   els.checkUpdateBtn.addEventListener('click', () => checkForUpdate(true));
@@ -1388,7 +1315,6 @@ function wire() {
     if (lastRenderedDay !== todayISO()) renderAll();
     if (Date.now() - updateCheckedAt > 5 * 60 * 1000) checkForUpdate(false);
     if (state.settings.sync.token && state.settings.sync.gistId) syncNow(false);
-    checkNotifications();
   });
 
   setInterval(() => {
@@ -1429,7 +1355,6 @@ function boot() {
   renderAll();
   registerServiceWorker();
   if (state.settings.sync.token && state.settings.sync.gistId) setTimeout(() => syncNow(false), 800);
-  setTimeout(checkNotifications, 1200);
 }
 
 boot();

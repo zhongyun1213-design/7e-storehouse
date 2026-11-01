@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="styles.css?v=2.2.0-2026-11-01">
+<link rel="stylesheet" href="styles.css?v=2.3.0-2026-11-01">
 </head>
 <body>
 <div class="app">
@@ -210,13 +210,6 @@
   </section>
 
   <section class="setting">
-    <h3>到期提醒（桌面浏览器）</h3>
-    <p class="setting-desc" id="notifyStatus">开启后，临近截止（3 天内）会弹一次浏览器通知。iPhone 上的推送要等下一版。</p>
-    <button type="button" class="btn ghost block" id="notifyBtn">开启提醒</button>
-    <button type="button" class="btn ghost block" id="installBtn" hidden>安装到桌面 / 主屏幕</button>
-  </section>
-
-  <section class="setting">
     <h3>推送提醒（Web Push）</h3>
     <p class="setting-desc" id="pushStatus">开启后，到点（按每条设置的提前量）会收到系统推送，电脑和 iPhone 都能收。iPhone 需要 iOS 16.4 以上，并且先把应用添加到主屏幕。</p>
     <button type="button" class="btn ghost block" id="pushToggleBtn">开启推送</button>
@@ -232,6 +225,7 @@
       <button type="button" class="btn ghost danger" id="clearAllBtn">清空全部</button>
     </div>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <button type="button" class="btn ghost block" id="installBtn" hidden>安装到桌面 / 主屏幕</button>
     <button type="button" class="btn ghost block" id="checkUpdateBtn">检查更新</button>
   </section>
 
@@ -260,6 +254,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="qrcode.js"></script>
-<script type="module" src="app.js?v=2.2.0-2026-11-01"></script>
+<script type="module" src="app.js?v=2.3.0-2026-11-01"></script>
 </body>
 </html>
