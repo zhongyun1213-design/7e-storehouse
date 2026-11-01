@@ -194,6 +194,7 @@ function normalizeItem(raw, index = 0) {
     note: typeof raw.note === 'string' ? raw.note.slice(0, 300) : '',
     time: /^\d{2}:\d{2}$/.test(raw.time || '') ? raw.time : '',
     lead: Number.isFinite(Number(raw.lead)) && Number(raw.lead) >= 0 ? Number(raw.lead) : 30,
+    canvasUid: typeof raw.canvasUid === 'string' ? raw.canvasUid : '',
     done: Boolean(raw.done),
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now()
