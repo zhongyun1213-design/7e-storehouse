@@ -236,6 +236,35 @@ await click('#settingsDialog [data-close="settingsDialog"]');
 await sleep(300);
 assert(await evalJS(`document.getElementById('qrPanel').hidden`), '关闭设置后二维码被收起');
 
+console.log('· 手机宽度下再看一眼');
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await send('Page.navigate', { url: decoded.data });
+await sleep(400);
+await reload();
+await click('#settingsBtn');
+await waitFor(`document.getElementById('settingsDialog').open`, '设置弹窗打开');
+await click('#qrBtn');
+await waitFor(`!document.getElementById('qrPanel').hidden`, '二维码面板出现');
+const narrow = await evalJS(`(() => {
+  const c = document.getElementById('qrCanvas').getBoundingClientRect();
+  const p = document.getElementById('qrPanel').getBoundingClientRect();
+  const d = document.getElementById('settingsDialog').getBoundingClientRect();
+  return {
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth,
+    canvasW: c.width,
+    panelW: p.width,
+    dialogW: d.width,
+    canvasInside: c.left >= p.left - 1 && c.right <= p.right + 1
+  };
+})()`);
+assert(narrow.scrollWidth <= narrow.innerWidth + 1, '手机宽度没有横向滚动（' + narrow.scrollWidth + '/' + narrow.innerWidth + '）');
+assert(narrow.canvasInside, '二维码没超出面板');
+assert(narrow.canvasW >= 160, '二维码在小屏上仍然够大（' + Math.round(narrow.canvasW) + 'px）');
+await shot('qr-panel-mobile');
+await send('Emulation.clearDeviceMetricsOverride');
+await sleep(250);
+
 console.log('· 收尾');
 assert(consoleErrors.length === 0, '没有页面报错（' + consoleErrors.join(' | ') + '）');
 await evalJS(`localStorage.clear()`);

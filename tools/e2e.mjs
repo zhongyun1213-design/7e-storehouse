@@ -323,12 +323,18 @@ const sw = await evalJS(`navigator.serviceWorker.ready.then(r => !!r.active)`);
 assert(sw, 'Service Worker 已激活');
 const cacheInfo = await evalJS(`(async () => {
   const keys = await caches.keys();
-  const cache = await caches.open('polyu-memo-v2');
+  const cache = await caches.open(keys[0]);
   const reqs = await cache.keys();
-  return { keys, count: reqs.length, hasApp: reqs.some(r => r.url.endsWith('app.js')) };
+  return {
+    keys,
+    count: reqs.length,
+    hasApp: reqs.some(r => r.url.endsWith('app.js')),
+    hasQr: reqs.some(r => r.url.endsWith('qrcode.js'))
+  };
 })()`);
 assert(cacheInfo.hasApp, '缓存里有 app.js');
-assert(cacheInfo.count >= 8, '缓存资产数量 ' + cacheInfo.count);
+assert(cacheInfo.hasQr, '缓存里有二维码组件');
+assert(cacheInfo.count >= 12, '缓存资产数量 ' + cacheInfo.count);
 
 console.log('· 移动端布局');
 await setViewport(390, 844, true);

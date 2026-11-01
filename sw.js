@@ -1,4 +1,4 @@
-const CACHE = 'polyu-memo-v2';
+const CACHE = 'polyu-memo-v3';
 const ASSETS = [
   './',
   'index.html',
