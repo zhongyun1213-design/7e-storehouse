@@ -5,8 +5,8 @@ compatibility_date = "2025-09-01"
 # 两个 KV 命名空间：SUBS 存订阅，SENT 存「这条已经推过」的去重记录。
 # 部署前把 id 换成 `wrangler kv namespace create SUBS` 输出的真实 id。
 kv_namespaces = [
-  { binding = "SUBS", id = "REPLACE_WITH_SUBS_ID" },
-  { binding = "SENT", id = "REPLACE_WITH_SENT_ID" }
+  { binding = "SUBS", id = "f99a3ff0575d4a40993c70387bd91f75" },
+  { binding = "SENT", id = "940b1aa574174357b49dd846b9d50f38" }
 ]
 
 [triggers]
