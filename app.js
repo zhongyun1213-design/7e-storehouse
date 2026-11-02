@@ -85,6 +85,8 @@ const els = {
   aboutLine: $('aboutLine'),
   canvasSyncBtn: $('canvasSyncBtn'),
   checkUpdateBtn: $('checkUpdateBtn'),
+  calendarBtn: $('calendarBtn'),
+  calendarStatus: $('calendarStatus'),
   pushToggleBtn: $('pushToggleBtn'),
   pushTestBtn: $('pushTestBtn'),
   pushStatus: $('pushStatus'),
@@ -182,7 +184,7 @@ function defaultState() {
     memos: [],
     tombstones: { items: {}, memos: {} },
     digest: null,
-    settings: { theme: 'auto', sync: { token: '', gistId: '', lastSync: 0 } },
+    settings: { theme: 'auto', sync: { token: '', gistId: '', lastSync: 0 }, calendarToken: '' },
     meta: { lastNotify: null, lastSeenDigest: null }
   };
 }
@@ -258,7 +260,8 @@ function normalize(raw) {
         token: raw.settings && raw.settings.sync && typeof raw.settings.sync.token === 'string' ? raw.settings.sync.token : '',
         gistId: raw.settings && raw.settings.sync && typeof raw.settings.sync.gistId === 'string' ? raw.settings.sync.gistId : '',
         lastSync: Number(raw.settings && raw.settings.sync && raw.settings.sync.lastSync) || 0
-      }
+      },
+      calendarToken: raw.settings && typeof raw.settings.calendarToken === 'string' ? raw.settings.calendarToken : ''
     },
     meta: {
       lastNotify: (raw.meta && raw.meta.lastNotify) || null,
@@ -946,6 +949,7 @@ function docForSync() {
     items: state.items,
     memos: state.memos,
     tombstones: state.tombstones,
+    settings: { calendarToken: state.settings.calendarToken || '' },
     updatedAt: Date.now()
   };
 }
@@ -997,6 +1001,10 @@ async function syncNow(manual = false) {
     state.items = merged.items;
     state.memos = merged.memos;
     state.tombstones = merged.tombstones;
+    // 日历订阅口令存在 Gist 的 settings 里，本机没有就从远端取一次
+    if (!state.settings.calendarToken && remote && remote.settings && typeof remote.settings.calendarToken === 'string') {
+      state.settings.calendarToken = remote.settings.calendarToken;
+    }
 
     const digestFile = gist.files && gist.files[DIGEST_FILE];
     if (digestFile && digestFile.content) {
@@ -1232,6 +1240,33 @@ async function onCanvasSync() {
   }
 }
 
+/* ---------------- 日历订阅 ---------------- */
+
+function calendarFeedUrl() {
+  const base = workerUrl();
+  const token = state.settings.calendarToken;
+  if (!base || !token) return '';
+  return `${base}/calendar.ics?t=${encodeURIComponent(token)}`;
+}
+
+function refreshCalendarUI() {
+  if (!els.calendarStatus) return;
+  const url = calendarFeedUrl();
+  els.calendarBtn.hidden = !url;
+  els.calendarStatus.textContent = url
+    ? '点下面的按钮，会在系统日历里加一个只读订阅：截止日提前 30 分钟提醒；只有日期的，当天早上提醒。'
+    : '订阅地址还没配置好（需要 Worker 部署 + 订阅口令）。';
+}
+
+function onCalendarSubscribe() {
+  const url = calendarFeedUrl();
+  if (!url) {
+    toast('订阅地址还没配置');
+    return;
+  }
+  location.href = url.replace(/^https?:\/\//, 'webcal://');
+}
+
 /* ---------------- data ---------------- */
 
 function exportData() {
@@ -1379,6 +1414,7 @@ function wire() {
     els.syncToken.value = state.settings.sync.token;
     els.syncGistId.value = state.settings.sync.gistId;
     refreshPushUI();
+    refreshCalendarUI();
     renderSyncUI();
     els.settingsDialog.showModal();
   });
@@ -1422,6 +1458,7 @@ function wire() {
   els.pushToggleBtn.addEventListener('click', onPushToggle);
   els.pushTestBtn.addEventListener('click', onPushTest);
   els.checkUpdateBtn.addEventListener('click', () => checkForUpdate(true));
+  els.calendarBtn.addEventListener('click', onCalendarSubscribe);
   els.canvasSyncBtn.addEventListener('click', onCanvasSync);
   els.installBtn.addEventListener('click', onInstallClick);
   els.exportBtn.addEventListener('click', exportData);

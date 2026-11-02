@@ -1,5 +1,6 @@
 import { sendPush, parseSubscription } from './webpush.js';
 import { canvasItemsFromIcs, mergeCanvasItems } from './canvas.js';
+import { buildIcs } from './ics.js';
 
 const HKT_OFFSET = 8 * 60 * 60 * 1000;
 const CATCH_UP_MS = 5 * 60 * 1000;
@@ -271,6 +272,21 @@ export default {
         return json(await syncCanvas(env));
       } catch (err) {
         return json({ ok: false, error: String(err.message || err) }, 500);
+      }
+    }
+
+    if (url.pathname === '/calendar.ics') {
+      const token = url.searchParams.get('t') || '';
+      if (!env.CALENDAR_TOKEN || token !== env.CALENDAR_TOKEN) {
+        return new Response('forbidden', { status: 403 });
+      }
+      try {
+        const state = await loadState(env);
+        return new Response(buildIcs(state), {
+          headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response('error: ' + String(err.message || err), { status: 500 });
       }
     }
 

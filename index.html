@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="styles.css?v=2.6.1-2026-11-02">
+<link rel="stylesheet" href="styles.css?v=2.7.0-2026-11-02">
 </head>
 <body>
 <div class="app">
@@ -226,6 +226,12 @@
   </section>
 
   <section class="setting">
+    <h3>日历订阅</h3>
+    <p class="setting-desc" id="calendarStatus">把截止日和带提醒时间的备忘同步进系统日历，用 iPhone 自带日历提前提醒。</p>
+    <button type="button" class="btn ghost block" id="calendarBtn" hidden>在系统日历里订阅</button>
+  </section>
+
+  <section class="setting">
     <h3>数据</h3>
     <p class="setting-desc">数据默认只存在这台设备；开启同步后，会存进你自己的私有 Gist。</p>
     <div class="setting-grid">
@@ -264,6 +270,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="qrcode.js"></script>
-<script type="module" src="app.js?v=2.6.1-2026-11-02"></script>
+<script type="module" src="app.js?v=2.7.0-2026-11-02"></script>
 </body>
 </html>
