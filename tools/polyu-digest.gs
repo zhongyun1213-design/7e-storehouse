@@ -11,7 +11,7 @@
  *   4. 打开 script.google.com → 新建项目 → 把本文件内容整份粘贴进去。
  *   5. 改下面 CONFIG 里的 GIST_ID 和 GITHUB_TOKEN（token 只勾 Gist 读写）。
  *   6. 项目设置 → 时区选 (GMT+08:00) 香港；先手动运行一次 testDigest 看日志。
- *   7. 运行 installTrigger，之后每天 12:30 自动跑（想改时间就改 installTrigger 里的 12 / 30）。
+ *   7. 运行 installTrigger，之后每 2 小时自动跑一次（想改频率就改 installTrigger 里的 everyHours）。
  *
  * 注意：token 写在脚本里，只存在你自己的 Google 账号，别把项目分享给别人。
  */
@@ -23,7 +23,9 @@ const CONFIG = {
   WINDOW_DAYS: 2,
   MAX_THREADS: 30,
   MAX_ITEMS: 12,
-  TIMEZONE: 'Asia/Hong_Kong'
+  TIMEZONE: 'Asia/Hong_Kong',
+  // 只认 PolyU 发件人（含转发过来的本人），避免「学校」标签里混进 Google 之类无关邮件
+  SENDER_RE: /polyu\.edu\.hk|connect\.polyu\.hk|polyu\.edu(?![\w.])/i
 };
 
 const CATEGORY_RULES = [
@@ -71,8 +73,9 @@ function buildDigest() {
     if (seen[id]) continue;
     seen[id] = true;
 
-    const subject = (message.getSubject() || '').trim();
+    const subject = cleanSubject(message.getSubject());
     const from = (message.getFrom() || '').trim();
+    if (!CONFIG.SENDER_RE.test(from)) continue;
     const receivedAt = message.getDate().toISOString();
     const body = (message.getPlainBody() || '').replace(/\s+/g, ' ').trim();
     const haystack = `${subject} ${body.slice(0, 600)}`;
@@ -184,17 +187,63 @@ function writeDigest(digest) {
   }
 }
 
-/** 每天 12:30 跑一次。重复运行不会叠加多个触发器。 */
+/** 每 2 小时跑一次。重复运行不会叠加多个触发器。 */
 function installTrigger() {
   ScriptApp.getProjectTriggers().forEach((trigger) => {
     if (trigger.getHandlerFunction() === 'dailyDigest') ScriptApp.deleteTrigger(trigger);
   });
   ScriptApp.newTrigger('dailyDigest')
     .timeBased()
-    .atHour(12)
-    .nearMinute(30)
-    .everyDays(1)
+    .everyHours(2)
     .inTimezone(CONFIG.TIMEZONE)
     .create();
-  Logger.log('触发器已安装：每天 12:30（%s）', CONFIG.TIMEZONE);
+  Logger.log('触发器已安装：每 2 小时（%s）', CONFIG.TIMEZONE);
+}
+
+/** 去掉「转发: / Fwd: / Re:」这类前缀，标题更干净 */
+function cleanSubject(subject) {
+  let text = String(subject || '').trim();
+  for (let i = 0; i < 3; i += 1) {
+    const next = text.replace(/^(转发|回复|回覆|Fwd|Re|AW|WG)\s*[:：]\s*/i, '').trim();
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
+/** 一次性诊断：把标签、最近邮件、搜索命中情况写进 Gist 的 polyu-debug.json */
+function diagnose() {
+  const labels = GmailApp.getUserLabels().map(function (l) { return l.getName(); });
+  const recent = GmailApp.search('newer_than:3d', 0, 10);
+  const recentInfo = [];
+  for (var i = 0; i < recent.length; i++) {
+    var m = recent[i].getMessages()[recent[i].getMessages().length - 1];
+    recentInfo.push({ subject: m.getSubject(), from: m.getFrom(), date: m.getDate().toISOString() });
+  }
+  const labelHits = GmailApp.search('label:' + CONFIG.LABEL + ' newer_than:7d', 0, 10).length;
+  const info = {
+    at: new Date().toISOString(),
+    labelConfig: CONFIG.LABEL,
+    labels: labels,
+    recentCount: recent.length,
+    recent: recentInfo,
+    labelHits: labelHits
+  };
+  const response = UrlFetchApp.fetch('https://api.github.com/gists/' + CONFIG.GIST_ID, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + CONFIG.GITHUB_TOKEN, Accept: 'application/vnd.github+json' },
+    muteHttpExceptions: true
+  });
+  const gist = JSON.parse(response.getContentText());
+  const payload = { files: { 'polyu-debug.json': { content: JSON.stringify(info, null, 2) } } };
+  payload.files['polyu-memo.json'] = { content: gist.files['polyu-memo.json'].content };
+  payload.files['polyu-digest.json'] = { content: gist.files['polyu-digest.json'].content };
+  const res = UrlFetchApp.fetch('https://api.github.com/gists/' + CONFIG.GIST_ID, {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + CONFIG.GITHUB_TOKEN, Accept: 'application/vnd.github+json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  Logger.log('diagnose written: %s %s', res.getResponseCode(), JSON.stringify(info));
 }

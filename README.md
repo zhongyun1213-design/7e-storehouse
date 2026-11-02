@@ -85,7 +85,7 @@ npx wrangler deploy
 整条链路不需要服务器，全部跑在你自己的账号里：
 
 ```
-PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」──▶ Apps Script（每天 12:30）
+PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」──▶ Apps Script（每 2 小时）
                                                               │
                                                      写入私有 Gist
                                                               │
@@ -104,8 +104,10 @@ PolyU Outlook ──转发规则──▶ 你的 Gmail ──标签「学校」�
 2. 把 `tools/polyu-digest.gs` 整份粘进去。
 3. 改顶部 `CONFIG`：`GIST_ID`、`GITHUB_TOKEN`（同一个 token 即可）、`LABEL`（默认「学校」）。
 4. 项目设置 → 时区选 **(GMT+08:00) 香港**。
-5. 先运行 `testDigest`，看日志里有没有抓到邮件；再运行 `installTrigger`，之后每天 12:30 自动跑。
+5. 先运行 `testDigest`，看日志里有没有抓到邮件；再运行 `installTrigger`，之后每 2 小时自动跑一次。
 6. 回到 App 的「邮件」页点「刷新」。
+
+> Gmail 过滤器建议按**发件人**建：`from:(polyu.edu.hk OR connect.polyu.hk)`，别再按收件人，否则自己的 Google 通知也会被打上「学校」标签。
 
 常见问题：
 
