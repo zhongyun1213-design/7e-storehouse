@@ -64,7 +64,10 @@ const els = {
   memoForm: $('memoForm'),
   memoTitle: $('memoTitle'),
   memoId: $('memoId'),
-  memoText: $('memoText'),
+  memoHeading: $('memoHeading'),
+  memoItems: $('memoItems'),
+  memoAddItem: $('memoAddItem'),
+  memoRemind: $('memoRemind'),
   memoPin: $('memoPin'),
   memoDeleteBtn: $('memoDeleteBtn'),
   memoToDeadlineBtn: $('memoToDeadlineBtn'),
@@ -202,10 +205,27 @@ function normalizeItem(raw, index = 0) {
 }
 
 function normalizeMemo(raw, index = 0) {
-  if (!raw || typeof raw.text !== 'string' || !raw.text.trim()) return null;
+  if (!raw || typeof raw !== 'object') return null;
+  const items = [];
+  if (Array.isArray(raw.items)) {
+    raw.items.forEach((item, i) => {
+      if (!item || typeof item.text !== 'string' || !item.text.trim()) return;
+      items.push({
+        id: String(item.id || `mi-${index}-${i}`),
+        text: String(item.text).slice(0, 200),
+        done: Boolean(item.done)
+      });
+    });
+  }
+  if (!items.length && typeof raw.text === 'string' && raw.text.trim()) {
+    items.push({ id: `mi-${index}-0`, text: raw.text.trim().slice(0, 200), done: false });
+  }
+  if (!items.length) return null;
   return {
     id: String(raw.id || `me-${Date.now()}-${index}`),
-    text: String(raw.text).slice(0, 1000),
+    title: typeof raw.title === 'string' ? raw.title.slice(0, 40) : '',
+    items: items.slice(0, 30),
+    remindAt: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw.remindAt || '') ? raw.remindAt : '',
     pinned: Boolean(raw.pinned),
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now()
@@ -490,6 +510,12 @@ function renderCountdown() {
   els.toggleDone.textContent = showDone ? '隐藏已完成' : '显示已完成';
 }
 
+function fmtRemind(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || '');
+  if (!match) return '';
+  return `${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+}
+
 function renderMemos() {
   const memos = [...state.memos].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -505,17 +531,50 @@ function renderMemos() {
       '想到就记，比记在脑子里靠谱。点右下角的加号。'));
     return;
   }
+
   for (const memo of memos) {
-    els.memoList.append(el('button', {
+    const doneCount = memo.items.filter((item) => item.done).length;
+    const rows = memo.items.map((item) => el('li', { class: `memo-item${item.done ? ' is-done' : ''}` },
+      el('button', {
+        class: 'memo-check',
+        type: 'button',
+        'aria-pressed': String(item.done),
+        'aria-label': item.done ? `把「${item.text}」标回未完成` : `把「${item.text}」标记完成`,
+        onclick: (event) => {
+          event.stopPropagation();
+          toggleMemoItem(memo.id, item.id);
+        }
+      }, el('span', { class: 'box', text: item.done ? '✓' : '' })),
+      el('span', { class: 'memo-item-text', text: item.text })));
+
+    els.memoList.append(el('div', {
       class: `memo${memo.pinned ? ' pinned' : ''}`,
-      type: 'button',
-      onclick: () => openMemo(memo)
+      role: 'button',
+      tabindex: '0',
+      onclick: () => openMemo(memo),
+      onkeydown: (event) => {
+        if (event.key === 'Enter' || event.key === ' ') openMemo(memo);
+      }
     },
-      el('span', { class: 'memo-text', text: memo.text }),
+      memo.title ? el('span', { class: 'memo-heading', text: memo.title }) : null,
+      el('ul', { class: 'memo-items-view' }, rows),
       el('span', { class: 'memo-meta' },
         memo.pinned ? el('span', { class: 'pin-flag' }, '置顶') : null,
-        el('span', { text: `更新于 ${timeLabel(memo.updatedAt)}` }))));
+        memo.remindAt ? el('span', { class: 'memo-remind', text: `提醒 ${fmtRemind(memo.remindAt)}` }) : null,
+        el('span', { text: `${doneCount}/${memo.items.length}` }))));
   }
+}
+
+function toggleMemoItem(memoId, itemId) {
+  const memo = state.memos.find((m) => m.id === memoId);
+  if (!memo) return;
+  const item = memo.items.find((it) => it.id === itemId);
+  if (!item) return;
+  item.done = !item.done;
+  memo.updatedAt = Date.now();
+  save();
+  renderMemos();
+  scheduleSync();
 }
 
 function renderMail() {
@@ -721,31 +780,67 @@ function deleteItem() {
 
 /* ---------------- memo actions ---------------- */
 
+function memoItemRow(text = '', done = false) {
+  const input = el('input', { type: 'text', maxlength: '120', placeholder: '例如：买牙膏', value: text });
+  const check = el('input', { type: 'checkbox', class: 'memo-item-check' });
+  check.checked = done;
+  const remove = el('button', { class: 'icon-btn small', type: 'button', 'aria-label': '删除这一项' }, '✕');
+  remove.addEventListener('click', () => row.remove());
+  const row = el('div', { class: 'memo-item-row' }, check, input, remove);
+  return row;
+}
+
+function collectMemoRows() {
+  return [...els.memoItems.querySelectorAll('.memo-item-row')]
+    .map((row, index) => {
+      const input = row.querySelector('input[type="text"]');
+      const check = row.querySelector('input[type="checkbox"]');
+      const text = input ? input.value.trim() : '';
+      if (!text) return null;
+      return { id: row.dataset.itemId || `mi-${Date.now().toString(36)}-${index}`, text: text.slice(0, 200), done: Boolean(check && check.checked) };
+    })
+    .filter(Boolean);
+}
+
 function openMemo(memo = null) {
   els.memoId.value = memo ? memo.id : '';
   els.memoTitle.textContent = memo ? '编辑备忘' : '新备忘';
-  els.memoText.value = memo ? memo.text : '';
+  els.memoHeading.value = memo ? memo.title || '' : '';
+  els.memoRemind.value = memo ? memo.remindAt || '' : '';
   els.memoPin.checked = memo ? memo.pinned : false;
+  els.memoItems.replaceChildren();
+  const rows = memo ? memo.items : [null];
+  rows.forEach((item, index) => {
+    const row = memoItemRow(item ? item.text : '', item ? item.done : false);
+    if (item) row.dataset.itemId = item.id;
+    els.memoItems.append(row);
+    if (!memo && index === 0) setTimeout(() => row.querySelector('input[type="text"]').focus(), 40);
+  });
   els.memoDeleteBtn.hidden = !memo;
   els.memoToDeadlineBtn.hidden = !memo;
   els.memoDialog.showModal();
-  setTimeout(() => els.memoText.focus(), 40);
+  if (memo) setTimeout(() => els.memoHeading.focus(), 40);
 }
 
 function submitMemo(event) {
   event.preventDefault();
-  const text = els.memoText.value.trim();
-  if (!text) {
+  const items = collectMemoRows();
+  if (!items.length) {
     toast('先写点内容');
-    els.memoText.focus();
     return;
   }
   const id = els.memoId.value;
+  const payload = {
+    title: els.memoHeading.value.trim().slice(0, 40),
+    items,
+    remindAt: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(els.memoRemind.value) ? els.memoRemind.value : '',
+    pinned: els.memoPin.checked
+  };
   if (id) {
     const memo = state.memos.find((m) => m.id === id);
-    if (memo) Object.assign(memo, { text, pinned: els.memoPin.checked, updatedAt: Date.now() });
+    if (memo) Object.assign(memo, payload, { updatedAt: Date.now() });
   } else {
-    state.memos.push({ id: `me-${Date.now().toString(36)}`, text, pinned: els.memoPin.checked, createdAt: Date.now(), updatedAt: Date.now() });
+    state.memos.push({ id: `me-${Date.now().toString(36)}`, createdAt: Date.now(), updatedAt: Date.now(), ...payload });
   }
   save();
   closeDialog(els.memoDialog);
@@ -768,14 +863,15 @@ function deleteMemo() {
 }
 
 function memoToDeadline() {
-  const text = els.memoText.value.trim();
-  if (!text) {
+  const rows = collectMemoRows();
+  if (!rows.length) {
     toast('先写点内容');
     return;
   }
-  const firstLine = text.split('\n')[0].slice(0, 40);
+  const heading = els.memoHeading.value.trim() || rows[0].text;
+  const note = rows.map((row) => row.text).join('；').slice(0, 120);
   closeDialog(els.memoDialog);
-  openEditor(null, { title: firstLine, note: text.slice(0, 120), category: 'study' });
+  openEditor(null, { title: heading.slice(0, 40), note, category: 'calendar' });
 }
 
 /* ---------------- mail actions ---------------- */
@@ -1297,6 +1393,11 @@ function wire() {
   els.editorForm.addEventListener('submit', submitEditor);
   els.deleteBtn.addEventListener('click', deleteItem);
   els.memoForm.addEventListener('submit', submitMemo);
+  els.memoAddItem.addEventListener('click', () => {
+    const row = memoItemRow('');
+    els.memoItems.append(row);
+    row.querySelector('input[type="text"]').focus();
+  });
   els.memoDeleteBtn.addEventListener('click', deleteMemo);
   els.memoToDeadlineBtn.addEventListener('click', memoToDeadline);
 

@@ -135,6 +135,36 @@ export function dueItems(state, now = Date.now()) {
   return out;
 }
 
+/** 备忘的「提醒时间」到点了没有。纯函数，方便单测。 */
+export function dueMemos(state, now = Date.now()) {
+  const memos = Array.isArray(state && state.memos) ? state.memos : [];
+  const out = [];
+  for (const memo of memos) {
+    if (!memo || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(memo.remindAt || '')) continue;
+    const pending = (memo.items || []).filter((item) => !item.done);
+    if (!pending.length) continue; // 全勾完了就不提醒
+    const at = Date.parse(`${memo.remindAt}:00+08:00`);
+    if (!Number.isFinite(at)) continue;
+    if (now < at || now >= at + CATCH_UP_MS) continue;
+    out.push({
+      id: String(memo.id || ''),
+      at,
+      title: String(memo.title || '').trim(),
+      text: pending.map((item) => item.text).slice(0, 3).join('；')
+    });
+  }
+  return out;
+}
+
+function payloadForMemo(memo) {
+  return JSON.stringify({
+    title: 'PolyU 备忘录 · 该做了',
+    body: memo.title ? `${memo.title}：${memo.text}` : memo.text,
+    tag: `polyu-memo-${memo.id}`,
+    url: './'
+  });
+}
+
 function payloadFor(item) {
   const when = item.time;
   return JSON.stringify({
@@ -148,22 +178,25 @@ function payloadFor(item) {
 export async function runDue(env, now = Date.now()) {
   const state = await loadState(env);
   const due = dueItems(state, now);
-  if (!due.length) return { checked: 0, sent: 0, skipped: 0 };
+  const memoDue = dueMemos(state, now);
+  const jobs = [
+    ...due.map((item) => ({ key: `sent:${item.id}:${item.remindAt}`, payload: payloadFor(item) })),
+    ...memoDue.map((memo) => ({ key: `sent:memo:${memo.id}:${memo.at}`, payload: payloadForMemo(memo) }))
+  ];
+  if (!jobs.length) return { checked: 0, sent: 0, skipped: 0 };
   const subs = await listSubs(env);
-  if (!subs.length) return { checked: due.length, sent: 0, skipped: 0, reason: 'no-subscribers' };
+  if (!subs.length) return { checked: jobs.length, sent: 0, skipped: 0, reason: 'no-subscribers' };
   let sent = 0;
   let skipped = 0;
-  for (const item of due) {
-    const dedupeKey = `sent:${item.id}:${item.remindAt}`;
-    if (await env.SENT.get(dedupeKey)) {
+  for (const job of jobs) {
+    if (await env.SENT.get(job.key)) {
       skipped += 1;
       continue;
     }
-    const payload = payloadFor(item);
     let delivered = 0;
     for (const sub of subs) {
       try {
-        const result = await sendPush(sub, payload, env.VAPID_PRIVATE_JWK, env.VAPID_SUBJECT || 'mailto:polyu-memo@example.com');
+        const result = await sendPush(sub, job.payload, env.VAPID_PRIVATE_JWK, env.VAPID_SUBJECT || 'mailto:polyu-memo@example.com');
         if (result.ok) delivered += 1;
         else if (result.status === 404 || result.status === 410) await env.SUBS.delete(sub.key);
         else console.warn('push failed', result.status, result.error);
@@ -173,10 +206,10 @@ export async function runDue(env, now = Date.now()) {
     }
     if (delivered > 0) {
       sent += 1;
-      await env.SENT.put(dedupeKey, String(now), { expirationTtl: 3 * 86400 });
+      await env.SENT.put(job.key, String(now), { expirationTtl: 3 * 86400 });
     }
   }
-  return { checked: due.length, sent, skipped };
+  return { checked: jobs.length, sent, skipped };
 }
 
 export default {

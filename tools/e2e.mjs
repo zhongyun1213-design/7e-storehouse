@@ -242,9 +242,15 @@ assert(await evalJS(`document.getElementById('view-memos').hidden === false`), '
 assert((await evalJS(`document.querySelector('.memo-empty strong').textContent`)) === '还没有备忘', '备忘空状态');
 await click('#addBtn');
 assert(await evalJS(`document.getElementById('memoDialog').open`), '备忘弹窗打开');
-await type('#memoText', '买打印机墨盒');
+await type('#memoItems input[type="text"]', '买打印机墨盒');
+await click('#memoAddItem');
+await type('#memoItems .memo-item-row:nth-child(2) input[type="text"]', '预约牙医');
 await click('#memoForm button[type="submit"]');
 await waitFor(`document.querySelectorAll('.memo').length === 1`, '备忘进入列表');
+assert((await evalJS(`document.querySelectorAll('.memo .memo-item').length`)) === 2, '一条备忘里有两件事');
+await click('.memo .memo-check');
+await waitFor(`document.querySelector('.memo .memo-item').classList.contains('is-done')`, '勾掉一项');
+assert((await evalJS(`document.querySelector('.memo-meta').textContent`)).includes('1/2'), '完成的项数统计正确');
 await click('.memo');
 await evalJS(`document.getElementById('memoPin').click()`);
 await click('#memoForm button[type="submit"]');

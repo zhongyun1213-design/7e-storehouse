@@ -507,13 +507,18 @@ body[data-tab="mail"] .fab { display: none; }
 .memo:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 .memo.pinned { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: linear-gradient(180deg, var(--accent-soft), transparent 55%), var(--card); }
 
-.memo-text {
-  display: block;
-  font-size: 14.5px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+.memo-heading { display: block; font-size: 14.5px; font-weight: 700; margin-bottom: 6px; overflow-wrap: anywhere; }
+.memo-items-view { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.memo-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; line-height: 1.55; }
+.memo-item-text { overflow-wrap: anywhere; }
+.memo-item.is-done .memo-item-text { color: var(--muted); text-decoration: line-through; }
+.memo-check { flex: none; width: 20px; height: 20px; padding: 0; margin-top: 1px; border-radius: 7px; border: 1.5px solid color-mix(in srgb, var(--muted) 45%, var(--line)); background: none; color: var(--ok); font-size: 12px; cursor: pointer; display: grid; place-items: center; }
+.memo-item.is-done .memo-check { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); background: var(--ok-soft); }
+.memo-remind { color: var(--accent); }
+.memo-items { display: grid; gap: 8px; }
+.memo-item-row { display: flex; align-items: center; gap: 8px; }
+.memo-item-row input[type="text"] { flex: 1; min-width: 0; padding: 9px 11px; font-size: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg-soft); color: var(--ink); }
+.memo-item-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .memo-meta {
   display: flex;
