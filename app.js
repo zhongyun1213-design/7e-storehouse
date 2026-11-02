@@ -561,12 +561,25 @@ function renderMail() {
       actions.append(el('a', { class: 'btn ghost small', href: mail.url, target: '_blank', rel: 'noopener noreferrer' }, '打开邮件'));
     }
 
+    const snippetNode = mail.snippet ? el('p', { class: 'mail-snippet', text: mail.snippet }) : null;
+    const expandBtn = mail.snippet && mail.snippet.length > 120
+      ? el('button', {
+        class: 'link-btn',
+        type: 'button',
+        onclick: () => {
+          const expanded = snippetNode.classList.toggle('expanded');
+          expandBtn.textContent = expanded ? '收起' : '展开全文';
+        }
+      }, '展开全文')
+      : null;
+
     els.mailList.append(el('article', { class: `mail-card${mail.importance === 'high' ? ' high' : ''}` },
       el('div', { class: 'mail-top' },
         el('span', { class: 'mail-from', text: shortenFrom(mail.from) }),
         el('span', { class: 'mail-when', text: mail.receivedAt ? timeLabel(Date.parse(mail.receivedAt)) : '' })),
       el('h3', { class: 'mail-subject', text: mail.subject || '（无主题）' }),
-      mail.snippet ? el('p', { class: 'mail-snippet', text: mail.snippet }) : null,
+      snippetNode,
+      expandBtn,
       tags.length ? el('div', { class: 'mail-tags' },
         tags.map((t) => el('span', { class: `tag${t === '重要' ? ' accent' : ''}`, text: t })),
         suggested ? el('span', { class: 'tag accent', text: `提到 ${shortDate(suggested)}` }) : null) : null,

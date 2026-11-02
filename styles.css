@@ -563,7 +563,9 @@ body[data-tab="mail"] .fab { display: none; }
 .mail-when { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .mail-subject { margin: 7px 0 0; font-size: 14.5px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
-.mail-snippet { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); opacity: 0.85; line-height: 1.6; }
+.mail-snippet { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); opacity: 0.85; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.mail-snippet.expanded { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.link-btn { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 
 .mail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 
