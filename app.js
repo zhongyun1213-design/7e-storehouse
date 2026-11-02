@@ -1334,6 +1334,8 @@ function wire() {
 
   els.editCategory.append(...Object.entries(CATEGORIES).map(([key, c]) => el('option', { value: key, text: c.label })));
 
+  setupSwipe();
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (lastRenderedDay !== todayISO()) renderAll();
@@ -1367,6 +1369,44 @@ function consumeSyncHash() {
     renderSyncUI();
     toast('已导入同步配置，开始同步…');
   }, 500);
+}
+
+/* ---------------- 左右滑动切板块 ---------------- */
+
+const TAB_ORDER = ['countdown', 'memos', 'mail'];
+let swipeStart = null;
+
+function setupSwipe() {
+  const root = document.querySelector('.app');
+  if (!root) return;
+  const dialogOpen = () => [...document.querySelectorAll('dialog')].some((dialog) => dialog.open);
+
+  root.addEventListener('touchstart', (event) => {
+    if (event.touches.length !== 1 || dialogOpen()) {
+      swipeStart = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeStart = { x: touch.clientX, y: touch.clientY, at: Date.now() };
+  }, { passive: true });
+
+  root.addEventListener('touchend', (event) => {
+    if (!swipeStart || dialogOpen()) {
+      swipeStart = null;
+      return;
+    }
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - swipeStart.x;
+    const dy = touch.clientY - swipeStart.y;
+    const elapsed = Date.now() - swipeStart.at;
+    swipeStart = null;
+    if (elapsed > 900) return;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const index = TAB_ORDER.indexOf(tab);
+    const nextIndex = dx < 0 ? index + 1 : index - 1;
+    if (index < 0 || nextIndex < 0 || nextIndex >= TAB_ORDER.length) return;
+    setTab(TAB_ORDER[nextIndex]);
+  }, { passive: true });
 }
 
 function boot() {
