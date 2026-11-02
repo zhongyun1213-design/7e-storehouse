@@ -1491,12 +1491,16 @@ const TAB_ORDER = ['countdown', 'memos', 'mail'];
 let swipeStart = null;
 
 function setupSwipe() {
-  const root = document.querySelector('.app');
-  if (!root) return;
+  // 挂在 document 上：备忘很少时页面下半部分是空白，事件目标会是 body，
+  // 挂在 .app 上会收不到（这就是「只在备忘页滑不动」的原因）。
   const dialogOpen = () => [...document.querySelectorAll('dialog')].some((dialog) => dialog.open);
+  const inField = (target) => {
+    if (!target || !target.tagName) return false;
+    return ['INPUT', 'TEXTAREA', 'SELECT', 'OPTION'].includes(target.tagName) || target.isContentEditable;
+  };
 
-  root.addEventListener('touchstart', (event) => {
-    if (event.touches.length !== 1 || dialogOpen()) {
+  document.addEventListener('touchstart', (event) => {
+    if (event.touches.length !== 1 || dialogOpen() || inField(event.target)) {
       swipeStart = null;
       return;
     }
@@ -1504,7 +1508,7 @@ function setupSwipe() {
     swipeStart = { x: touch.clientX, y: touch.clientY, at: Date.now() };
   }, { passive: true });
 
-  root.addEventListener('touchend', (event) => {
+  document.addEventListener('touchend', (event) => {
     if (!swipeStart || dialogOpen()) {
       swipeStart = null;
       return;
