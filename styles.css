@@ -672,6 +672,8 @@ form.sheet-body { padding: 0 20px 20px; }
 
 .field input, .field select, .field textarea {
   width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
   padding: 11px 13px;
   border: 1px solid var(--line);
   border-radius: 13px;
@@ -683,6 +685,23 @@ form.sheet-body { padding: 0 20px 20px; }
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
+/* iOS 的日期/时间控件默认按内容撑宽，会顶出格子压到旁边那一栏 */
+.field input[type="date"],
+.field input[type="time"],
+.field input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+}
+
+@media (max-width: 380px) {
+  .field input[type="date"],
+  .field input[type="time"],
+  .field input[type="datetime-local"] {
+    font-size: 16px;
+  }
+}
+
 .field textarea { resize: vertical; min-height: 60px; }
 .field input:focus, .field select:focus, .field textarea:focus {
   border-color: var(--accent);
@@ -690,7 +709,9 @@ form.sheet-body { padding: 0 20px 20px; }
 }
 
 .field input::placeholder, .field textarea::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field-row > .field { min-width: 0; }
+@media (max-width: 360px) { .field-row { grid-template-columns: 1fr; } }
 .field-hint { margin: -6px 0 10px; font-size: 12px; color: var(--muted); line-height: 1.6; }
 .item-time { font-variant-numeric: tabular-nums; }
 
